@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fon Tahmin Takip | Günlük Tahmini Değerler</title>
+    <meta name="description" content="Yatırım fonlarının günlük tahmini değişim yüzdelerini tek sayfada takip edin.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a1f35;
+            --bg-card-hover: #222845;
+            --border-color: rgba(99, 102, 241, 0.15);
+            --border-glow: rgba(99, 102, 241, 0.4);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #6366f1;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #22d3ee;
+            --positive: #10b981;
+            --positive-bg: rgba(16, 185, 129, 0.1);
+            --positive-glow: rgba(16, 185, 129, 0.3);
+            --negative: #ef4444;
+            --negative-bg: rgba(239, 68, 68, 0.1);
+            --negative-glow: rgba(239, 68, 68, 0.3);
+            --neutral: #f59e0b;
+            --neutral-bg: rgba(245, 158, 11, 0.1);
+            --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+            --gradient-2: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+            --gradient-positive: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            --gradient-negative: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(34, 211, 238, 0.04) 0%, transparent 50%);
+            animation: bgFloat 20s ease-in-out infinite;
+        }
+
+        @keyframes bgFloat {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(2%, -1%) rotate(1deg); }
+            66% { transform: translate(-1%, 2%) rotate(-1deg); }
+        }
+
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
+            background: rgba(10, 14, 26, 0.85);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-icon {
+            width: 46px;
+            height: 46px;
+            background: var(--gradient-1);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 800;
+            color: white;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%) rotate(45deg); }
+            50% { transform: translateX(100%) rotate(45deg); }
+        }
+
+        .header-title h1 {
+            font-size: 19px;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 100px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--positive);
+            box-shadow: 0 0 12px var(--positive-glow);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.loading {
+            background: var(--neutral);
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.85); }
+        }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--gradient-1);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+        }
+
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+
+        .refresh-btn.spinning .refresh-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .refresh-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        /* Main Content */
+        .main-content {
+            position: relative;
+            z-index: 10;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 28px 24px;
+        }
+
+        /* Summary Bar */
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+
+        .summary-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 18px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .summary-item:hover {
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-glow);
+            transform: translateY(-2px);
+        }
+
+        .summary-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        /* Fund Cards Grid */
+        .funds-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+        }
+
+        .fund-card {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 26px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .fund-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-1);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .fund-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-card), var(--shadow-glow);
+            background: var(--bg-card-hover);
+        }
+
+        .fund-card:hover::before {
+            opacity: 1;
+        }
+
+        .fund-card.positive {
+            --card-accent: var(--positive);
+            --card-bg: var(--positive-bg);
+            --card-glow: var(--positive-glow);
+        }
+
+        .fund-card.negative {
+            --card-accent: var(--negative);
+            --card-bg: var(--negative-bg);
+            --card-glow: var(--negative-glow);
+        }
+
+        .fund-card.neutral {
+            --card-accent: var(--neutral);
+            --card-bg: var(--neutral-bg);
+        }
+
+        .fund-card.positive::before {
+            background: var(--gradient-positive);
+        }
+
+        .fund-card.negative::before {
+            background: var(--gradient-negative);
+        }
+
+        .fund-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .fund-code-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .fund-code {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 14px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            letter-spacing: 0.05em;
+        }
+
+        .fund-category {
+            font-size: 11px;
+            padding: 4px 10px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 8px;
+            color: var(--accent-purple);
+            font-weight: 500;
+        }
+
+        .fund-link-icon {
+            font-size: 14px;
+            opacity: 0;
+            transform: translateX(-4px);
+            transition: all 0.3s ease;
+        }
+
+        .fund-card:hover .fund-link-icon {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .fund-direction-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            background: var(--card-bg, rgba(99, 102, 241, 0.1));
+            color: var(--card-accent, var(--accent-blue));
+            transition: transform 0.3s ease;
+        }
+
+        .fund-card:hover .fund-direction-icon {
+            transform: scale(1.1);
+        }
+
+        .fund-name {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        .fund-estimate-section {
+            margin-bottom: 18px;
+        }
+
+        .fund-estimate-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 6px;
+        }
+
+        .fund-estimate-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--card-accent, var(--text-primary));
+            line-height: 1;
+            text-shadow: 0 0 30px var(--card-glow, transparent);
+            transition: all 0.5s ease;
+        }
+
+        .fund-estimate-value .percent {
+            font-size: 20px;
+            font-weight: 600;
+            margin-left: 2px;
+            opacity: 0.7;
+        }
+
+        /* Fund details grid */
+        .fund-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .fund-detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .fund-detail-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 500;
+        }
+
+        .fund-detail-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .fund-detail-value.return-positive {
+            color: var(--positive);
+        }
+
+        .fund-detail-value.return-negative {
+            color: var(--negative);
+        }
+
+        /* Risk indicator */
+        .risk-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .risk-bar {
+            width: 6px;
+            height: 14px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .risk-bar.active {
+            background: var(--accent-blue);
+        }
+
+        .risk-bar.active.high {
+            background: var(--negative);
+        }
+
+        .risk-bar.active.medium {
+            background: var(--neutral);
+        }
+
+        .risk-bar.active.low {
+            background: var(--positive);
+        }
+
+        /* Loading Skeleton */
+        .skeleton {
+            position: relative;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .skeleton::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.05) 50%,
+                transparent 100%
+            );
+            animation: skeleton-shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes skeleton-shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .skeleton-value {
+            width: 160px;
+            height: 40px;
+        }
+
+        .skeleton-small {
+            width: 80px;
+            height: 16px;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 26, 0.92);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .loading-spinner {
+            width: 56px;
+            height: 56px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 24px;
+        }
+
+        .loading-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .loading-subtext {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Update timer */
+        .update-info {
+            text-align: center;
+            margin-top: 28px;
+            padding: 14px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .update-info .time {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Auto-refresh indicator */
+        .auto-refresh-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.03);
+            z-index: 100;
+        }
+
+        .auto-refresh-progress {
+            height: 100%;
+            background: var(--gradient-2);
+            width: 0%;
+            transition: width 1s linear;
+            border-radius: 0 3px 3px 0;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            font-size: 14px;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-card);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 200;
+            backdrop-filter: blur(10px);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .funds-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 14px 16px;
+                flex-direction: column;
+                gap: 14px;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .main-content {
+                padding: 18px 14px;
+            }
+
+            .funds-grid {
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+
+            .fund-estimate-value {
+                font-size: 30px;
+            }
+
+            .summary-bar {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .fund-card {
+                padding: 20px;
+            }
+
+            .fund-details {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 420px) {
+            .header-title h1 {
+                font-size: 16px;
+            }
+
+            .logo-icon {
+                width: 38px;
+                height: 38px;
+                border-radius: 11px;
+                font-size: 15px;
+            }
+
+            .summary-value {
+                font-size: 18px;
+            }
+
+            .summary-item {
+                padding: 12px;
+            }
+
+            .fund-estimate-value {
+                font-size: 28px;
+            }
+        }
+
+        /* Entry animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fund-card {
+            animation: fadeInUp 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        .fund-card:nth-child(1) { animation-delay: 0.1s; }
+        .fund-card:nth-child(2) { animation-delay: 0.2s; }
+        .fund-card:nth-child(3) { animation-delay: 0.3s; }
+        .fund-card:nth-child(4) { animation-delay: 0.4s; }
+
+        .summary-item {
+            animation: fadeInUp 0.5s ease forwards;
+            opacity: 0;
+        }
+        .summary-item:nth-child(1) { animation-delay: 0.05s; }
+        .summary-item:nth-child(2) { animation-delay: 0.1s; }
+        .summary-item:nth-child(3) { animation-delay: 0.15s; }
+        .summary-item:nth-child(4) { animation-delay: 0.2s; }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Fon verileri yükleniyor</div>
+        <div class="loading-subtext">fvt.com.tr'den güncel tahminler çekiliyor...</div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo-icon">📊</div>
+            <div class="header-title">
+                <h1>Fon Tahmin Takip</h1>
+                <p>Günlük tahmini değişim yüzdeleri</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status-badge" id="statusBadge">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Bağlanıyor...</span>
+            </div>
+            <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">
+                <span class="refresh-icon" id="refreshIcon">↻</span>
+                Yenile
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Summary Bar -->
+        <div class="summary-bar" id="summaryBar">
+            <div class="summary-item">
+                <div class="summary-label">Takip Edilen</div>
+                <div class="summary-value" style="color: var(--accent-blue);">4 Fon</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Ortalama Tahmin</div>
+                <div class="summary-value" id="avgEstimate" style="color: var(--text-muted);">—</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">En Yüksek</div>
+                <div class="summary-value" id="maxEstimate" style="color: var(--positive);">—</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">En Düşük</div>
+                <div class="summary-value" id="minEstimate" style="color: var(--negative);">—</div>
+            </div>
+        </div>
+
+        <!-- Fund Cards -->
+        <div class="funds-grid" id="fundsGrid">
+            {% for fund in funds %}
+            <div class="fund-card" id="card-{{ fund.code }}" onclick="window.open('{{ fund.url }}', '_blank')">
+                <div class="fund-header">
+                    <div class="fund-code-wrap">
+                        <div class="fund-code">
+                            {{ fund.code }}
+                            <span class="fund-link-icon">↗</span>
+                        </div>
+                        <span class="fund-category" id="category-{{ fund.code }}"></span>
+                    </div>
+                    <div class="fund-direction-icon" id="direction-{{ fund.code }}">—</div>
+                </div>
+                <div class="fund-name">{{ fund.name }}</div>
+                <div class="fund-estimate-section">
+                    <div class="fund-estimate-label">Günün Tahmini</div>
+                    <div class="fund-estimate-value" id="estimate-{{ fund.code }}">
+                        <div class="skeleton skeleton-value"></div>
+                    </div>
+                </div>
+                <div class="fund-details" id="details-{{ fund.code }}">
+                    <div class="fund-detail-item">
+                        <span class="fund-detail-label">Fon Fiyatı</span>
+                        <span class="fund-detail-value" id="price-{{ fund.code }}">
+                            <span class="skeleton skeleton-small"></span>
+                        </span>
+                    </div>
+                    <div class="fund-detail-item">
+                        <span class="fund-detail-label">Risk</span>
+                        <span class="fund-detail-value" id="risk-{{ fund.code }}">
+                            <span class="skeleton skeleton-small"></span>
+                        </span>
+                    </div>
+                    <div class="fund-detail-item">
+                        <span class="fund-detail-label">Haftalık Getiri</span>
+                        <span class="fund-detail-value" id="weekly-{{ fund.code }}">
+                            <span class="skeleton skeleton-small"></span>
+                        </span>
+                    </div>
+                    <div class="fund-detail-item">
+                        <span class="fund-detail-label">Aylık Getiri</span>
+                        <span class="fund-detail-value" id="monthly-{{ fund.code }}">
+                            <span class="skeleton skeleton-small"></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Update Info -->
+        <div class="update-info" id="updateInfo">
+            Veriler yükleniyor...
+        </div>
+    </main>
+
+    <!-- Auto-refresh Bar -->
+    <div class="auto-refresh-bar">
+        <div class="auto-refresh-progress" id="autoRefreshProgress"></div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const AUTO_REFRESH_INTERVAL = 120; // saniye
+        let refreshTimer = null;
+        let isLoading = false;
+        let isFirstLoad = true;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+        });
+
+        async function fetchData() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const overlay = document.getElementById('loadingOverlay');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            if (isFirstLoad) {
+                overlay.classList.add('active');
+            }
+
+            refreshBtn.classList.add('spinning');
+            statusDot.classList.add('loading');
+            statusText.textContent = 'Güncelleniyor...';
+
+            try {
+                const response = await fetch('/api/funds');
+                const result = await response.json();
+
+                if (result.status === 'loading') {
+                    setTimeout(fetchData, 3000);
+                    isLoading = false;
+                    return;
+                }
+
+                if (result.status === 'success' && result.data) {
+                    updateUI(result.data);
+                    
+                    statusDot.classList.remove('loading');
+                    statusText.textContent = `Son: ${result.last_updated}`;
+
+                    document.getElementById('updateInfo').innerHTML = 
+                        `Son güncelleme: <span class="time">${result.last_updated}</span> · Otomatik yenileme: <span class="time">${AUTO_REFRESH_INTERVAL}s</span>${result.cached ? ' · 📦 önbellek' : ''}`;
+
+                    showToast(result.cached ? '📦 Önbellekten yüklendi' : '✅ Veriler güncellendi');
+                } else {
+                    showToast('❌ Veri alınamadı', true);
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                statusText.textContent = 'Bağlantı hatası';
+                showToast('❌ Bağlantı hatası', true);
+            } finally {
+                isLoading = false;
+                isFirstLoad = false;
+                overlay.classList.remove('active');
+                refreshBtn.classList.remove('spinning');
+                startAutoRefresh();
+            }
+        }
+
+        function formatReturn(value) {
+            if (!value) return '—';
+            const num = parseFloat(value);
+            if (isNaN(num)) return '—';
+            const sign = num >= 0 ? '+' : '';
+            return `${sign}${num.toFixed(2)}%`;
+        }
+
+        function getReturnClass(value) {
+            if (!value) return '';
+            const num = parseFloat(value);
+            if (isNaN(num)) return '';
+            return num >= 0 ? 'return-positive' : 'return-negative';
+        }
+
+        function updateUI(funds) {
+            const estimates = [];
+
+            funds.forEach(fund => {
+                const card = document.getElementById(`card-${fund.code}`);
+                const estimateEl = document.getElementById(`estimate-${fund.code}`);
+                const directionEl = document.getElementById(`direction-${fund.code}`);
+                const priceEl = document.getElementById(`price-${fund.code}`);
+                const riskEl = document.getElementById(`risk-${fund.code}`);
+                const weeklyEl = document.getElementById(`weekly-${fund.code}`);
+                const monthlyEl = document.getElementById(`monthly-${fund.code}`);
+                const categoryEl = document.getElementById(`category-${fund.code}`);
+
+                if (fund.error && !fund.estimate) {
+                    estimateEl.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Veri alınamadı</span>';
+                    return;
+                }
+
+                // Tahmin değeri
+                let estimateValue = fund.estimate || '—';
+                let numericValue = null;
+
+                if (estimateValue !== '—') {
+                    const cleanValue = estimateValue.replace('%', '').replace(',', '.').trim();
+                    numericValue = parseFloat(cleanValue);
+                    
+                    if (!isNaN(numericValue)) {
+                        estimates.push(numericValue);
+
+                        card.classList.remove('positive', 'negative', 'neutral');
+                        if (numericValue > 0) {
+                            card.classList.add('positive');
+                            directionEl.textContent = '▲';
+                            estimateEl.innerHTML = `+${numericValue.toFixed(3)}<span class="percent">%</span>`;
+                        } else if (numericValue < 0) {
+                            card.classList.add('negative');
+                            directionEl.textContent = '▼';
+                            estimateEl.innerHTML = `${numericValue.toFixed(3)}<span class="percent">%</span>`;
+                        } else {
+                            card.classList.add('neutral');
+                            directionEl.textContent = '●';
+                            estimateEl.innerHTML = `0.000<span class="percent">%</span>`;
+                        }
+                    } else {
+                        estimateEl.textContent = estimateValue;
+                    }
+                } else {
+                    estimateEl.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Veri bekleniyor...</span>';
+                }
+
+                // Fiyat
+                if (fund.price) {
+                    priceEl.textContent = `₺${parseFloat(fund.price).toFixed(6)}`;
+                } else {
+                    priceEl.textContent = '—';
+                }
+
+                // Risk
+                if (fund.risk) {
+                    const riskNum = parseInt(fund.risk);
+                    let riskHtml = '<div class="risk-indicator">';
+                    for (let i = 1; i <= 7; i++) {
+                        const isActive = i <= riskNum;
+                        let riskClass = '';
+                        if (riskNum <= 2) riskClass = 'low';
+                        else if (riskNum <= 4) riskClass = 'medium';
+                        else riskClass = 'high';
+                        riskHtml += `<div class="risk-bar ${isActive ? 'active ' + riskClass : ''}"></div>`;
+                    }
+                    riskHtml += `</div>`;
+                    riskEl.innerHTML = riskHtml;
+                }
+
+                // Haftalık ve aylık getiri
+                weeklyEl.textContent = formatReturn(fund.weekly_return);
+                weeklyEl.className = `fund-detail-value ${getReturnClass(fund.weekly_return)}`;
+                
+                monthlyEl.textContent = formatReturn(fund.monthly_return);
+                monthlyEl.className = `fund-detail-value ${getReturnClass(fund.monthly_return)}`;
+
+                // Kategori
+                if (fund.category) {
+                    categoryEl.textContent = fund.category;
+                    categoryEl.style.display = 'inline-block';
+                }
+            });
+
+            // Özet bilgileri
+            if (estimates.length > 0) {
+                const avg = estimates.reduce((a, b) => a + b, 0) / estimates.length;
+                const max = Math.max(...estimates);
+                const min = Math.min(...estimates);
+
+                const avgEl = document.getElementById('avgEstimate');
+                const maxEl = document.getElementById('maxEstimate');
+                const minEl = document.getElementById('minEstimate');
+
+                avgEl.textContent = `${avg >= 0 ? '+' : ''}${avg.toFixed(3)}%`;
+                avgEl.style.color = avg >= 0 ? 'var(--positive)' : 'var(--negative)';
+
+                maxEl.textContent = `+${max.toFixed(3)}%`;
+                minEl.textContent = `${min >= 0 ? '+' : ''}${min.toFixed(3)}%`;
+                minEl.style.color = min >= 0 ? 'var(--positive)' : 'var(--negative)';
+            }
+
+            // Re-animate
+            const cards = document.querySelectorAll('.fund-card');
+            cards.forEach((card, i) => {
+                card.style.animation = 'none';
+                card.offsetHeight;
+                card.style.animation = `fadeInUp 0.6s ease forwards`;
+                card.style.animationDelay = `${i * 0.1}s`;
+            });
+        }
+
+        function refreshData() {
+            if (isLoading) return;
+            clearAutoRefresh();
+            
+            const funds = ['DOH', 'PBR', 'DFI', 'PHE2'];
+            funds.forEach(code => {
+                const estimateEl = document.getElementById(`estimate-${code}`);
+                estimateEl.innerHTML = '<div class="skeleton skeleton-value"></div>';
+            });
+
+            isLoading = true;
+            const refreshBtn = document.getElementById('refreshBtn');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            refreshBtn.classList.add('spinning');
+            statusDot.classList.add('loading');
+            statusText.textContent = 'Güncelleniyor...';
+
+            fetch('/api/refresh')
+                .then(res => res.json())
+                .then(result => {
+                    if (result.status === 'success' && result.data) {
+                        updateUI(result.data);
+                        statusDot.classList.remove('loading');
+                        statusText.textContent = `Son: ${result.last_updated}`;
+                        document.getElementById('updateInfo').innerHTML = 
+                            `Son güncelleme: <span class="time">${result.last_updated}</span> · Otomatik yenileme: <span class="time">${AUTO_REFRESH_INTERVAL}s</span>`;
+                        showToast('✅ Veriler güncellendi');
+                    }
+                })
+                .catch(err => {
+                    showToast('❌ Güncelleme hatası', true);
+                })
+                .finally(() => {
+                    isLoading = false;
+                    refreshBtn.classList.remove('spinning');
+                    startAutoRefresh();
+                });
+        }
+
+        function startAutoRefresh() {
+            clearAutoRefresh();
+            
+            const progressEl = document.getElementById('autoRefreshProgress');
+            progressEl.style.transition = 'none';
+            progressEl.style.width = '0%';
+
+            requestAnimationFrame(() => {
+                progressEl.style.transition = `width ${AUTO_REFRESH_INTERVAL}s linear`;
+                progressEl.style.width = '100%';
+            });
+
+            refreshTimer = setTimeout(() => {
+                fetchData();
+            }, AUTO_REFRESH_INTERVAL * 1000);
+        }
+
+        function clearAutoRefresh() {
+            if (refreshTimer) {
+                clearTimeout(refreshTimer);
+                refreshTimer = null;
+            }
+            const progressEl = document.getElementById('autoRefreshProgress');
+            progressEl.style.transition = 'none';
+            progressEl.style.width = '0%';
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.borderColor = isError ? 'var(--negative)' : 'var(--positive)';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
