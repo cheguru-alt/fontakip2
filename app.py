@@ -76,69 +76,101 @@ def scrape_estimates_with_playwright():
             )
             
             for fund in FUNDS:
-                try:
-                    page = context.new_page()
-                    page.goto(fund["url"], wait_until="networkidle", timeout=30000)
-                    page.wait_for_timeout(3000)
-                    
-                    # JavaScript ile tahmin verisini çek
-                    estimate = page.evaluate("""
-                        () => {
-                            // Günün Tahmini değerini bul
-                            const allElements = document.querySelectorAll('*');
-                            for (const el of allElements) {
-                                const directText = Array.from(el.childNodes)
-                                    .filter(n => n.nodeType === 3)
-                                    .map(n => n.textContent.trim())
-                                    .join('');
-                                    
-                                if (directText.includes('Günün Tahmini')) {
-                                    const nextSib = el.nextElementSibling;
-                                    if (nextSib) {
-                                        const sibText = nextSib.innerText.trim();
-                                        const match = sibText.match(/[+-]?\\d+[.,]\\d+/);
-                                        if (match) return match[0];
-                                    }
-                                    
-                                    const parent = el.parentElement;
-                                    if (parent) {
-                                        const parentText = parent.innerText;
-                                        const idx = parentText.indexOf('Günün Tahmini');
-                                        if (idx !== -1) {
-                                            const after = parentText.substring(idx + 13);
-                                            const match = after.match(/[+-]?\\d+[.,]\\d+/);
-                                            if (match) return match[0];
+                estimate = None
+                
+                # Her fon için 2 deneme yap
+                for attempt in range(2):
+                    try:
+                        page = context.new_page()
+                        page.goto(fund["url"], wait_until="networkidle", timeout=60000)
+                        
+                        # "Günün Tahmini" metni sayfada görünene kadar bekle (max 15sn)
+                        try:
+                            page.wait_for_function(
+                                "() => document.body.innerText.includes('Günün Tahmini')",
+                                timeout=15000
+                            )
+                        except:
+                            pass
+                        
+                        # Ek bekleme - JS render tamamlansın
+                        page.wait_for_timeout(5000)
+                        
+                        # JavaScript ile tahmin verisini çek
+                        result = page.evaluate("""
+                            () => {
+                                // Yöntem 1: Tüm span'ları tara
+                                const spans = document.querySelectorAll('span');
+                                for (let i = 0; i < spans.length; i++) {
+                                    const text = spans[i].textContent.trim();
+                                    if (text === 'Günün Tahmini' || text.includes('Günün Tahmini')) {
+                                        // Sonraki sibling span'ları kontrol et
+                                        let nextEl = spans[i].nextElementSibling;
+                                        while (nextEl) {
+                                            const val = nextEl.textContent.trim();
+                                            const match = val.match(/^[+-]?\\d+[.,]\\d+\\s*%?$/);
+                                            if (match) return val.replace('%', '').trim();
+                                            nextEl = nextEl.nextElementSibling;
+                                        }
+                                        
+                                        // Parent içindeki sonraki span'lara bak
+                                        const parent = spans[i].parentElement;
+                                        if (parent) {
+                                            const childSpans = parent.querySelectorAll('span');
+                                            let foundLabel = false;
+                                            for (const cs of childSpans) {
+                                                if (cs.textContent.includes('Günün Tahmini')) {
+                                                    foundLabel = true;
+                                                    continue;
+                                                }
+                                                if (foundLabel) {
+                                                    const val = cs.textContent.trim();
+                                                    const match = val.match(/[+-]?\\d+[.,]\\d+/);
+                                                    if (match) return match[0];
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                                
+                                // Yöntem 2: body text'te ara
+                                const bodyText = document.body.innerText;
+                                const idx = bodyText.indexOf('Günün Tahmini');
+                                if (idx !== -1) {
+                                    const after = bodyText.substring(idx + 13, idx + 60);
+                                    const match = after.match(/[+-]?\\d+[.,]\\d+/);
+                                    if (match) return match[0];
+                                }
+                                
+                                return null;
                             }
-                            
-                            // Yedek: tüm sayfada ara
-                            const bodyText = document.body.innerText;
-                            const tahminiIdx = bodyText.indexOf('Günün Tahmini');
-                            if (tahminiIdx !== -1) {
-                                const after = bodyText.substring(tahminiIdx, tahminiIdx + 100);
-                                const match = after.match(/[+-]?\\d+[.,]\\d+/);
-                                if (match) return match[0];
-                            }
-                            
-                            return null;
-                        }
-                    """)
-                    
-                    if estimate:
-                        estimates[fund["code"]] = estimate.replace(',', '.')
-                    
-                    page.close()
-                    
-                except Exception as e:
-                    print(f"Playwright scrape error for {fund['code']}: {e}")
+                        """)
+                        
+                        page.close()
+                        
+                        if result:
+                            estimate = result.replace(',', '.')
+                            print(f"[OK] {fund['code']}: Gunun Tahmini = {estimate} (deneme {attempt+1})")
+                            break
+                        else:
+                            print(f"[WARN] {fund['code']}: Tahmin bulunamadi (deneme {attempt+1})")
+                        
+                    except Exception as e:
+                        print(f"[ERR] {fund['code']}: Playwright hata (deneme {attempt+1}): {e}")
+                        try:
+                            page.close()
+                        except:
+                            pass
+                
+                if estimate:
+                    estimates[fund["code"]] = estimate
             
             browser.close()
             
     except Exception as e:
-        print(f"Playwright browser error: {e}")
+        print(f"[ERR] Playwright browser error: {e}")
     
+    print(f"[INFO] Playwright sonuc: {len(estimates)}/{len(FUNDS)} fon icin tahmin bulundu")
     return estimates
 
 
