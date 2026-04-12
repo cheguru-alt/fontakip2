@@ -1,12 +1,21 @@
 from flask import Flask, render_template, jsonify
-from playwright.sync_api import sync_playwright
 import requests
+from bs4 import BeautifulSoup
 import json
-import time
+import re
 from datetime import datetime
 import threading
 
 app = Flask(__name__)
+
+# Playwright kullanılabilir mi kontrol et
+PLAYWRIGHT_AVAILABLE = False
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+    print("[INFO] Playwright kullanilabilir - tarayici tabanli scraping aktif")
+except ImportError:
+    print("[INFO] Playwright bulunamadi - sadece API verisi kullanilacak")
 
 # Fon listesi
 FUNDS = [
@@ -36,7 +45,7 @@ FUNDS = [
     }
 ]
 
-# Cache for fund data
+# Cache
 fund_cache = {
     "data": [],
     "last_updated": None,
@@ -44,9 +53,97 @@ fund_cache = {
 }
 cache_lock = threading.Lock()
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Referer": "https://fvt.com.tr/"
+}
+
+
+def scrape_estimates_with_playwright():
+    """Playwright ile tüm fonların 'Günün Tahmini' değerlerini çeker"""
+    estimates = {}
+    
+    if not PLAYWRIGHT_AVAILABLE:
+        return estimates
+    
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            
+            for fund in FUNDS:
+                try:
+                    page = context.new_page()
+                    page.goto(fund["url"], wait_until="networkidle", timeout=30000)
+                    page.wait_for_timeout(3000)
+                    
+                    # JavaScript ile tahmin verisini çek
+                    estimate = page.evaluate("""
+                        () => {
+                            // Günün Tahmini değerini bul
+                            const allElements = document.querySelectorAll('*');
+                            for (const el of allElements) {
+                                const directText = Array.from(el.childNodes)
+                                    .filter(n => n.nodeType === 3)
+                                    .map(n => n.textContent.trim())
+                                    .join('');
+                                    
+                                if (directText.includes('Günün Tahmini')) {
+                                    const nextSib = el.nextElementSibling;
+                                    if (nextSib) {
+                                        const sibText = nextSib.innerText.trim();
+                                        const match = sibText.match(/[+-]?\\d+[.,]\\d+/);
+                                        if (match) return match[0];
+                                    }
+                                    
+                                    const parent = el.parentElement;
+                                    if (parent) {
+                                        const parentText = parent.innerText;
+                                        const idx = parentText.indexOf('Günün Tahmini');
+                                        if (idx !== -1) {
+                                            const after = parentText.substring(idx + 13);
+                                            const match = after.match(/[+-]?\\d+[.,]\\d+/);
+                                            if (match) return match[0];
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Yedek: tüm sayfada ara
+                            const bodyText = document.body.innerText;
+                            const tahminiIdx = bodyText.indexOf('Günün Tahmini');
+                            if (tahminiIdx !== -1) {
+                                const after = bodyText.substring(tahminiIdx, tahminiIdx + 100);
+                                const match = after.match(/[+-]?\\d+[.,]\\d+/);
+                                if (match) return match[0];
+                            }
+                            
+                            return null;
+                        }
+                    """)
+                    
+                    if estimate:
+                        estimates[fund["code"]] = estimate.replace(',', '.')
+                    
+                    page.close()
+                    
+                except Exception as e:
+                    print(f"Playwright scrape error for {fund['code']}: {e}")
+            
+            browser.close()
+            
+    except Exception as e:
+        print(f"Playwright browser error: {e}")
+    
+    return estimates
+
 
 def get_fund_api_data(fund_code):
-    """FVT API'den fon bilgilerini çeker (fiyat, getiri vs.)"""
+    """FVT API'den fon bilgilerini çeker"""
     try:
         resp = requests.get(
             f"https://fvt.com.tr/api/funds/{fund_code}",
@@ -80,120 +177,47 @@ def get_fund_api_data(fund_code):
     return {}
 
 
-def scrape_all_funds():
-    """Tüm fonların verilerini çeker - tek browser instance ile"""
+def fetch_all_funds():
+    """Tüm fonların verilerini çeker"""
     results = []
     
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            
-            for fund in FUNDS:
-                fund_data = {
-                    "code": fund["code"],
-                    "name": fund["name"],
-                    "short_name": fund["short_name"],
-                    "url": fund["url"],
-                    "estimate": None,
-                    "price": None,
-                    "daily_return": None,
-                    "category": None,
-                    "risk": None,
-                    "weekly_return": None,
-                    "monthly_return": None,
-                    "ytd_return": None,
-                    "yearly_return": None,
-                    "error": None
-                }
-                
-                # Önce API'den sabit verileri çek
-                api_data = get_fund_api_data(fund["code"])
-                fund_data.update({k: v for k, v in api_data.items() if v is not None})
-                
-                try:
-                    page = context.new_page()
-                    page.goto(fund["url"], wait_until="networkidle", timeout=30000)
-                    page.wait_for_timeout(3000)
-                    
-                    # JavaScript ile tahmin verisini çek
-                    data = page.evaluate("""
-                        () => {
-                            const result = { estimate: null };
-                            
-                            // Günün Tahmini değerini bul
-                            const allElements = document.querySelectorAll('*');
-                            for (const el of allElements) {
-                                const directText = Array.from(el.childNodes)
-                                    .filter(n => n.nodeType === 3)
-                                    .map(n => n.textContent.trim())
-                                    .join('');
-                                    
-                                if (directText.includes('Günün Tahmini')) {
-                                    const nextSib = el.nextElementSibling;
-                                    if (nextSib) {
-                                        const sibText = nextSib.innerText.trim();
-                                        const match = sibText.match(/[+-]?\\d+[.,]\\d+/);
-                                        if (match) {
-                                            result.estimate = match[0];
-                                        }
-                                    }
-                                    
-                                    const parent = el.parentElement;
-                                    if (parent && !result.estimate) {
-                                        const parentText = parent.innerText;
-                                        const matches = parentText.match(/[%]\\s*([+-]?\\d+[.,]\\d+)|([+-]?\\d+[.,]\\d+)\\s*[%]/g);
-                                        if (matches && matches.length > 0) {
-                                            result.estimate = matches[0].replace('%', '').trim();
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Yedek yaklaşım
-                            if (!result.estimate) {
-                                const bodyText = document.body.innerText;
-                                const tahminiIndex = bodyText.indexOf('Günün Tahmini');
-                                if (tahminiIndex !== -1) {
-                                    const afterText = bodyText.substring(tahminiIndex, tahminiIndex + 100);
-                                    const match = afterText.match(/[+-]?\\d+[.,]\\d+/);
-                                    if (match) {
-                                        result.estimate = match[0];
-                                    }
-                                }
-                            }
-                            
-                            return result;
-                        }
-                    """)
-                    
-                    if data.get("estimate"):
-                        fund_data["estimate"] = data["estimate"]
-                    
-                    page.close()
-                    
-                except Exception as e:
-                    fund_data["error"] = str(e)
-                    
-                results.append(fund_data)
-            
-            browser.close()
-            
-    except Exception as e:
-        for fund in FUNDS:
+    # Playwright varsa tahmin verilerini çek
+    estimates = scrape_estimates_with_playwright()
+    
+    for fund in FUNDS:
+        fund_data = {
+            "code": fund["code"],
+            "name": fund["name"],
+            "short_name": fund["short_name"],
+            "url": fund["url"],
+            "estimate": None,
+            "price": None,
+            "daily_return": None,
+            "category": None,
+            "risk": None,
+            "weekly_return": None,
+            "monthly_return": None,
+            "ytd_return": None,
+            "yearly_return": None,
+            "error": None
+        }
+        
+        try:
+            # API'den detayları çek
             api_data = get_fund_api_data(fund["code"])
-            results.append({
-                "code": fund["code"],
-                "name": fund["name"],
-                "short_name": fund["short_name"],
-                "url": fund["url"],
-                "estimate": None,
-                "price": api_data.get("price"),
-                "daily_return": api_data.get("daily_return"),
-                "error": str(e)
-            })
+            fund_data.update({k: v for k, v in api_data.items() if v is not None})
+            
+            # Playwright'tan gelen tahmin varsa kullan
+            if fund["code"] in estimates:
+                fund_data["estimate"] = estimates[fund["code"]]
+            elif fund_data.get("daily_return"):
+                # Playwright yoksa API'deki günlük getiriyi kullan (yedek)
+                fund_data["estimate"] = fund_data["daily_return"]
+                
+        except Exception as e:
+            fund_data["error"] = str(e)
+        
+        results.append(fund_data)
     
     return results
 
@@ -230,7 +254,7 @@ def get_funds():
         fund_cache["loading"] = True
     
     try:
-        results = scrape_all_funds()
+        results = fetch_all_funds()
         
         with cache_lock:
             fund_cache["data"] = results
