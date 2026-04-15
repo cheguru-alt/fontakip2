@@ -29,7 +29,7 @@ FUNDS = [
         "code": "PBR",
         "name": "PUSULA PORTFÖY BİRİNCİ DEĞİŞKEN FON",
         "short_name": "Pusula Portföy Değişken",
-        "url": "https://fvt.com.tr/fonlar/yatirim-fonlari/PBR"
+        "url": "https://fvt.com.tr/fonlar/yatirim-fonlari/PBR2"
     },
     {
         "code": "DFI",
